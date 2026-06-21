@@ -1,5 +1,18 @@
 # CPC354 - Computer Graphics (Assignment 2)
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Language-WebGL%20%26%20JS-990000?style=for-the-badge&logo=webgl&logoColor=white" alt="Language" />
+  <img src="https://img.shields.io/badge/Course-CPC354-24292e?style=for-the-badge" alt="Course" />
+  <a href="https://github.com/ahmedtags">
+    <img src="https://img.shields.io/badge/Profile-ahmedtags-D9A34A?style=for-the-badge&logo=github&logoColor=white" alt="Profile" />
+  </a>
+  <a href="https://blxman-37fy.vercel.app/">
+    <img src="https://img.shields.io/badge/Portfolio-blxman--37fy-0A66C2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Portfolio" />
+  </a>
+</p>
+
+---
+
 This repository contains the WebGL interactive 3D simulation implementation and PDF report for **CPC354: Computer Graphics - Assignment 2** (Semester 1, Academic Session 2025/2026) at Universiti Sains Malaysia (USM).
 
 ## Course Details
@@ -81,4 +94,3 @@ Clicking `START` runs the robotic arm through an automated transition sequence:
 6. **State 6:** Lower the arm and cube down to the destination platform.
 7. **State 7:** Open the gripper claw to release the cube.
 8. **State 8:** Return the arm to the home/default pose.
-
