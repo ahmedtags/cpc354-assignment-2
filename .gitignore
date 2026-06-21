@@ -1,0 +1,5 @@
+# Ignore video project demonstration files and other large binaries
+*.mp4
+*.mkv
+*.avi
+*.mov

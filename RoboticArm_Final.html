@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Robotic Arm - Pick & Place Simulation</title>
+<style>
+/*
+ * =========================================================================
+ * CSS STYLES - Dark Industrial Theme
+ * =========================================================================
+ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #0a0a12 0%, #1a1a2e 100%);
+    padding: 15px;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    min-height: 100vh;
+}
+
+/* Control Panel Styling */
+.panel {
+    background: linear-gradient(180deg, #1e1e2e 0%, #151520 100%);
+    padding: 20px;
+    border-radius: 12px;
+    width: 300px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    height: fit-content;
+    border: 1px solid #2a2a3a;
+}
+
+.panel h3 {
+    color: #00d4ff;
+    margin-bottom: 15px;
+    font-size: 13px;
+    border-bottom: 1px solid #00d4ff44;
+    padding-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Slider Rows */
+.row { margin-bottom: 12px; }
+
+.row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 4px;
+    color: #888;
+}
+
+.row label span { 
+    color: #00d4ff; 
+    font-weight: bold; 
+    font-family: monospace; 
+}
+
+/* Custom Range Sliders */
+input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    -webkit-appearance: none;
+    height: 6px;
+    background: #2a2a3a;
+    border-radius: 3px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,212,255,0.4);
+}
+
+/* Color Picker Styling */
+.color-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.color-row label {
+    font-size: 11px;
+    color: #888;
+}
+
+input[type="color"] {
+    width: 50px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #2a2a3a;
+    padding: 2px;
+}
+
+/* Button Grid */
+.btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+button {
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+button:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+}
+
+button:active { transform: translateY(0); }
+
+.start { background: linear-gradient(135deg, #00cc66, #00aa55); color: white; }
+.stop { background: linear-gradient(135deg, #cc3333, #aa2222); color: white; }
+.reset { background: linear-gradient(135deg, #cc8800, #aa7700); color: white; }
+.loop { background: linear-gradient(135deg, #3366cc, #2255aa); color: white; }
+.loop.active { background: linear-gradient(135deg, #8844cc, #6633aa); }
+
+/* Status Display */
+.status {
+    background: #0a0a12;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.8;
+    color: #666;
+    border: 1px solid #2a2a3a;
+}
+
+.status b { color: #888; }
+#stateText { color: #00cc66; font-weight: bold; }
+#objText { color: #ffaa00; }
+#distText { font-weight: bold; transition: color 0.2s; }
+
+/* Keyboard Help Section */
+.keyboard-help {
+    background: #0a0a12;
+    color: #666;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    margin-top: 15px;
+    border: 1px solid #2a2a3a;
+}
+
+.keyboard-help h4 { 
+    color: #00d4ff; 
+    margin-bottom: 10px; 
+    font-size: 11px; 
+    letter-spacing: 1px; 
+}
+
+.key-row { 
+    display: flex; 
+    justify-content: space-between; 
+    margin: 5px 0; 
+}
+
+.key {
+    background: #2a2a3a;
+    color: #00d4ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+/* WebGL Canvas */
+canvas { 
+    border-radius: 12px; 
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    border: 1px solid #2a2a3a;
+}
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     CONTROL PANEL UI
+     ===================================================================== -->
+<div class="panel">
+    <!-- Joint Controls Section -->
+    <h3>JOINT CONTROLS</h3>
+    
+    <div class="row">
+        <label>Base Rotation (Q/E) <span id="v0">0°</span></label>
+        <input type="range" id="slider0" min="-180" max="180" value="0">
+    </div>
+    
+    <div class="row">
+        <label>Lower Arm (W/S) <span id="v1">0°</span></label>
+        <input type="range" id="slider1" min="-90" max="90" value="0">
+    </div>
+    
+    <div class="row">
+        <label>Upper Arm (↑/↓) <span id="v2">0°</span></label>
+        <input type="range" id="slider2" min="-150" max="150" value="0">
+    </div>
+    
+    <div class="row">
+        <label>Wrist (←/→) <span id="v3">0°</span></label>
+        <input type="range" id="slider3" min="-90" max="90" value="0">
+    </div>
+    
+    <div class="row">
+        <label>Gripper (Space) <span id="v4">35°</span></label>
+        <input type="range" id="slider4" min="0" max="45" value="35">
+    </div>
+    
+    <!-- Animation Controls Section -->
+    <h3>ANIMATION</h3>
+    
+    <div class="row">
+        <label>Speed <span id="vSpeed">0.5x</span></label>
+        <input type="range" id="sliderSpeed" min="0.1" max="2.0" step="0.1" value="0.5">
+    </div>
+    
+    <div class="row">
+        <label>Object Size <span id="vSize">1.0x</span></label>
+        <input type="range" id="sliderSize" min="0.5" max="2.0" step="0.1" value="1.0">
+    </div>
+    
+    <!-- Color Controls -->
+    <h3>COLORS</h3>
+    
+    <div class="color-row">
+        <label>Arm Color</label>
+        <input type="color" id="colorArm" value="#e68a00">
+    </div>
+    
+    <div class="color-row">
+        <label>Object Color</label>
+        <input type="color" id="colorObject" value="#e63322">
+    </div>
+    
+    <!-- Animation Buttons -->
+    <div class="btns">
+        <button class="start" id="btnStart">START</button>
+        <button class="stop" id="btnStop">STOP</button>
+        <button class="reset" id="btnReset">RESET</button>
+        <button class="loop" id="btnLoop">LOOP OFF</button>
+    </div>
+    
+    <!-- Status Display -->
+    <div class="status">
+        <b>State:</b> <span id="stateText">IDLE - Ready</span><br>
+        <b>Object:</b> <span id="objText">Right Platform (Blue)</span><br>
+        <b>Action:</b> <span id="distText">--</span>
+    </div>
+    
+    <!-- Keyboard Shortcuts -->
+    <div class="keyboard-help">
+        <h4>KEYBOARD SHORTCUTS</h4>
+        <div class="key-row"><span><span class="key">Q</span> / <span class="key">E</span></span><span>Base Left/Right</span></div>
+        <div class="key-row"><span><span class="key">W</span> / <span class="key">S</span></span><span>Lower Arm Up/Down</span></div>
+        <div class="key-row"><span><span class="key">↑</span> / <span class="key">↓</span></span><span>Upper Arm Up/Down</span></div>
+        <div class="key-row"><span><span class="key">←</span> / <span class="key">→</span></span><span>Wrist Left/Right</span></div>
+        <div class="key-row"><span class="key">SPACE</span><span>Grab / Release</span></div>
+        <div class="key-row"><span class="key">ENTER</span><span>Start Animation</span></div>
+        <div class="key-row"><span class="key">P</span><span>Pause/Stop</span></div>
+        <div class="key-row"><span class="key">R</span><span>Reset</span></div>
+        <div class="key-row"><span class="key">L</span><span>Toggle Loop</span></div>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a2a3a; color: #888; font-size: 9px;">
+            <span style="color:#00cc66">GRAB:</span> Move near cube, press SPACE<br>
+            <span style="color:#ffaa00">DROP:</span> Move to platform, press SPACE
+        </div>
+    </div>
+</div>
+
+<!-- WebGL Canvas -->
+<canvas id="gl-canvas" width="900" height="680"></canvas>
+
+<!-- =====================================================================
+     VERTEX SHADER
+     Transforms vertices and passes data to fragment shader
+     ===================================================================== -->
+<script id="vertex-shader" type="x-shader/x-vertex">
+#version 300 es
+
+// Input attributes
+in vec4 aPosition;      // Vertex position
+in vec3 aNormal;        // Vertex normal for lighting
+
+// Transformation matrices
+uniform mat4 modelViewMatrix;   // Model-view transformation
+uniform mat4 projectionMatrix;  // Projection transformation
+uniform mat4 normalMatrix;      // Normal transformation (transpose of inverse)
+
+// Output to fragment shader
+out vec3 vNormal;       // Transformed normal
+out vec3 vPosition;     // Position in view space
+
+void main()
+{
+    // Transform position to view space
+    vec4 pos = modelViewMatrix * aPosition;
+    vPosition = pos.xyz;
+    
+    // Transform normal (using normal matrix for correct lighting)
+    vNormal = mat3(normalMatrix) * aNormal;
+    
+    // Final position in clip space
+    gl_Position = projectionMatrix * pos;
+}
+</script>
+
+<!-- =====================================================================
+     FRAGMENT SHADER
+     Implements Phong lighting model with metallic materials
+     ===================================================================== -->
+<script id="fragment-shader" type="x-shader/x-fragment">
+#version 300 es
+precision highp float;
+
+// Input from vertex shader
+in vec3 vNormal;
+in vec3 vPosition;
+
+// Material and lighting uniforms
+uniform vec3 uColor;            // Base material color
+uniform vec3 uLightPos;         // Main light position
+uniform vec3 uLightPos2;        // Fill light position
+uniform float uShininess;       // Specular shininess
+uniform float uMetallic;        // Metallic reflection factor
+uniform vec3 uAmbientColor;     // Ambient light color
+
+// Output color
+out vec4 fColor;
+
+void main()
+{
+    // Normalize interpolated normal
+    vec3 N = normalize(vNormal);
+    
+    // View direction (camera at origin in view space)
+    vec3 V = normalize(-vPosition);
+    
+    // ===== LIGHT 1 (Main Light) =====
+    vec3 L1 = normalize(uLightPos - vPosition);
+    vec3 H1 = normalize(L1 + V);  // Halfway vector for Blinn-Phong
+    
+    float diff1 = max(dot(N, L1), 0.0);  // Diffuse component
+    float spec1 = pow(max(dot(N, H1), 0.0), uShininess);  // Specular component
+    
+    // ===== LIGHT 2 (Fill Light) =====
+    vec3 L2 = normalize(uLightPos2 - vPosition);
+    vec3 H2 = normalize(L2 + V);
+    
+    float diff2 = max(dot(N, L2), 0.0) * 0.4;  // Reduced intensity
+    float spec2 = pow(max(dot(N, H2), 0.0), uShininess) * 0.3;
+    
+    // ===== COMBINE LIGHTING COMPONENTS =====
+    
+    // Ambient: base illumination
+    vec3 ambient = uAmbientColor * uColor * 0.25;
+    
+    // Diffuse: matte surface reflection
+    vec3 diffuse = uColor * (diff1 + diff2);
+    
+    // Specular: shiny highlights (metallic surfaces reflect their own color)
+    vec3 specColor = mix(vec3(1.0), uColor, uMetallic);
+    vec3 specular = specColor * (spec1 + spec2);
+    
+    // Rim lighting: edge highlight for better depth perception
+    float rim = 1.0 - max(dot(N, V), 0.0);
+    rim = smoothstep(0.4, 1.0, rim);
+    vec3 rimColor = uColor * rim * 0.15;
+    
+    // Final color combination
+    vec3 finalColor = ambient + diffuse + specular + rimColor;
+    
+    // Tone mapping (prevents over-bright areas)
+    finalColor = finalColor / (finalColor + vec3(1.0));
+    
+    // Gamma correction for display
+    finalColor = pow(finalColor, vec3(1.0/2.2));
+    
+    fColor = vec4(finalColor, 1.0);
+}
+</script>
+
+<!-- =====================================================================
+     JAVASCRIPT - Main Application Code
+     ===================================================================== -->
+<script>
+"use strict";
+
+/*
+ * =========================================================================
+ * SECTION 1: MV.js LIBRARY FUNCTIONS
+ * Matrix and vector operations based on Angel & Shreiner textbook
+ * =========================================================================
+ */
+
+/**
+ * Convert degrees to radians
+ * @param {number} degrees - Angle in degrees
+ * @returns {number} Angle in radians
+ */
+function radians(degrees) { 
+    return degrees * Math.PI / 180.0; 
+}
+
+/**
+ * Check if value is a vector type
+ */
+function isVector(v) { 
+    return v && (v.type == "vec3" || v.type == "vec4"); 
+}
+
+/**
+ * Check if value is a matrix type
+ */
+function isMatrix(v) { 
+    return v && v.type == "mat4"; 
+}
+
+/**
+ * Create a 3-component vector
+ */
+function vec3(x, y, z) {
+    var out = [x || 0, y || 0, z || 0];
+    out.type = 'vec3';
+    return out;
+}
+
+/**
+ * Create a 4-component vector
+ */
+function vec4(x, y, z, w) {
+    var out = [x || 0, y || 0, z || 0, w || 0];
+    out.type = 'vec4';
+    return out;
+}
+
+/**
+ * Create a 4x4 identity matrix or from 16 values
+ * Matrix is stored in row-major order internally
+ */
+function mat4() {
+    var out = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]];
+    if (arguments.length == 16) {
+        for (var i = 0; i < 4; i++)
+            for (var j = 0; j < 4; j++)
+                out[i][j] = arguments[4*i + j];
+    }
+    out.type = 'mat4';
+    return out;
+}
+
+/**
+ * Matrix multiplication (mat4 * mat4)
+ * @param {mat4} u - Left matrix
+ * @param {mat4} v - Right matrix
+ * @returns {mat4} Result matrix
+ */
+function mult(u, v) {
+    if (u.type == 'mat4' && v.type == 'mat4') {
+        var result = mat4();
+        for (var i = 0; i < 4; i++)
+            for (var j = 0; j < 4; j++) {
+                result[i][j] = 0;
+                for (var k = 0; k < 4; k++)
+                    result[i][j] += u[i][k] * v[k][j];
+            }
+        return result;
+    }
+    throw "mult(): incompatible types";
+}
+
+/**
+ * Create translation matrix
+ * @param {number} x, y, z - Translation amounts
+ * @returns {mat4} Translation matrix
+ */
+function translate(x, y, z) {
+    var result = mat4();
+    result[0][3] = x; 
+    result[1][3] = y; 
+    result[2][3] = z;
+    return result;
+}
+
+/**
+ * Create rotation matrix around X axis
+ * @param {number} theta - Angle in degrees
+ * @returns {mat4} Rotation matrix
+ */
+function rotateX(theta) {
+    var c = Math.cos(radians(theta));
+    var s = Math.sin(radians(theta));
+    return mat4(1,0,0,0, 0,c,-s,0, 0,s,c,0, 0,0,0,1);
+}
+
+/**
+ * Create rotation matrix around Y axis
+ * @param {number} theta - Angle in degrees
+ * @returns {mat4} Rotation matrix
+ */
+function rotateY(theta) {
+    var c = Math.cos(radians(theta));
+    var s = Math.sin(radians(theta));
+    return mat4(c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1);
+}
+
+/**
+ * Create rotation matrix around Z axis
+ * @param {number} theta - Angle in degrees
+ * @returns {mat4} Rotation matrix
+ */
+function rotateZ(theta) {
+    var c = Math.cos(radians(theta));
+    var s = Math.sin(radians(theta));
+    return mat4(c,-s,0,0, s,c,0,0, 0,0,1,0, 0,0,0,1);
+}
+
+/**
+ * Create rotation matrix around arbitrary axis
+ * Uses Rodrigues' rotation formula
+ * @param {number} angle - Angle in degrees
+ * @param {vec3} axis - Rotation axis
+ * @returns {mat4} Rotation matrix
+ */
+function rotate(angle, axis) {
+    var v = normalize3(axis);
+    var x = v[0], y = v[1], z = v[2];
+    var c = Math.cos(radians(angle));
+    var omc = 1 - c;
+    var s = Math.sin(radians(angle));
+    return mat4(
+        x*x*omc+c,   x*y*omc+z*s, x*z*omc-y*s, 0,
+        x*y*omc-z*s, y*y*omc+c,   y*z*omc+x*s, 0,
+        x*z*omc+y*s, y*z*omc-x*s, z*z*omc+c,   0,
+        0, 0, 0, 1
+    );
+}
+
+/**
+ * Create scale matrix
+ * @param {number} x, y, z - Scale factors
+ * @returns {mat4} Scale matrix
+ */
+function scale(x, y, z) {
+    var result = mat4();
+    result[0][0] = x; 
+    result[1][1] = y; 
+    result[2][2] = z;
+    return result;
+}
+
+/**
+ * Create orthographic projection matrix
+ * @param {number} left, right, bottom, top, near, far - Clipping planes
+ * @returns {mat4} Projection matrix
+ */
+function ortho(left, right, bottom, top, near, far) {
+    var w = right - left;
+    var h = top - bottom;
+    var d = far - near;
+    var result = mat4();
+    result[0][0] = 2/w;
+    result[1][1] = 2/h;
+    result[2][2] = -2/d;
+    result[0][3] = -(left + right) / w;
+    result[1][3] = -(top + bottom) / h;
+    result[2][3] = -(near + far) / d;
+    return result;
+}
+
+/**
+ * Normalize a 3D vector
+ * @param {Array} v - Input vector
+ * @returns {Array} Normalized vector
+ */
+function normalize3(v) {
+    var len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    return len > 0 ? [v[0]/len, v[1]/len, v[2]/len] : [0,0,0];
+}
+
+/**
+ * Transpose a matrix
+ * @param {mat4} m - Input matrix
+ * @returns {mat4} Transposed matrix
+ */
+function transpose(m) {
+    var result = mat4();
+    for (var i = 0; i < 4; i++)
+        for (var j = 0; j < 4; j++)
+            result[i][j] = m[j][i];
+    return result;
+}
+
+/**
+ * Flatten matrix/array to Float32Array for WebGL
+ * Converts to column-major order for WebGL
+ * @param {mat4|Array} v - Input data
+ * @returns {Float32Array} Flattened array
+ */
+function flatten(v) {
+    if (v.type == 'mat4') {
+        var floats = new Float32Array(16);
+        for (var i = 0; i < 4; i++)
+            for (var j = 0; j < 4; j++)
+                floats[i*4+j] = v[j][i];  // Column-major order
+        return floats;
+    }
+    return new Float32Array(v);
+}
+
+/*
+ * =========================================================================
+ * SECTION 2: SHADER INITIALIZATION
+ * =========================================================================
+ */
+
+/**
+ * Initialize and compile shaders, create program
+ * @param {WebGLRenderingContext} gl - WebGL context
+ * @param {string} vsId - Vertex shader element ID
+ * @param {string} fsId - Fragment shader element ID
+ * @returns {WebGLProgram} Linked shader program
+ */
+function initShaders(gl, vsId, fsId) {
+    // Compile vertex shader
+    var vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, document.getElementById(vsId).textContent.trim());
+    gl.compileShader(vs);
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+        console.error("Vertex Shader Error:", gl.getShaderInfoLog(vs));
+        return null;
+    }
+    
+    // Compile fragment shader
+    var fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, document.getElementById(fsId).textContent.trim());
+    gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+        console.error("Fragment Shader Error:", gl.getShaderInfoLog(fs));
+        return null;
+    }
+    
+    // Link program
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error("Program Link Error:", gl.getProgramInfoLog(prog));
+        return null;
+    }
+    return prog;
+}
+
+/*
+ * =========================================================================
+ * SECTION 3: GLOBAL VARIABLES
+ * =========================================================================
+ */
+
+// WebGL context and program
+var canvas, gl, program;
+
+// Geometry buffers
+var positions = [];
+var normals = [];
+
+// ----- ARM SEGMENT DIMENSIONS -----
+// Based on proportions of industrial robotic arm
+var BASE_HEIGHT      = 0.5;     // Height of vertical column
+var BASE_WIDTH       = 0.4;     // Width of base
+var LOWER_ARM_HEIGHT = 0.9;     // Length of lower arm segment
+var LOWER_ARM_WIDTH  = 0.12;    // Thickness of lower arm
+var UPPER_ARM_HEIGHT = 0.8;     // Length of upper arm segment
+var UPPER_ARM_WIDTH  = 0.10;    // Thickness of upper arm
+var WRIST_HEIGHT     = 0.15;    // Length of wrist segment
+var WRIST_WIDTH      = 0.08;    // Thickness of wrist
+var FINGER_LENGTH    = 0.25;    // Length of gripper fingers
+var FINGER_WIDTH     = 0.028;   // Thickness of fingers
+
+// ----- SCENE CONFIGURATION -----
+var PLATFORM_X = 1.0;           // Distance of platforms from center
+var PLATFORM_Y = 0.3;           // Height of platforms
+var OBJ_SIZE   = 0.12;          // Size of the cube object
+var objectScale = 1.0;          // User-adjustable object scale
+
+// ----- JOINT ANGLE INDICES -----
+// Named constants for clarity
+var BASE     = 0;    // Base rotation (Y-axis)
+var LOWER    = 1;    // Lower arm rotation (X-axis)
+var UPPER    = 2;    // Upper arm rotation (X-axis)
+var WRIST    = 3;    // Wrist rotation (X-axis)
+var GRIPPER  = 4;    // Gripper opening (Z-axis)
+
+// ----- JOINT ANGLES ARRAY -----
+// Current rotation angles in degrees for each joint
+// Initial gripper angle will be updated based on object size
+var theta = [0, 0, 0, 0, 35];   // [Base, Lower, Upper, Wrist, Gripper]
+
+// ----- SHADER UNIFORM LOCATIONS -----
+var uModelViewMatrix, uProjectionMatrix, uNormalMatrix;
+var uColor, uLightPos, uLightPos2, uShininess, uMetallic, uAmbientColor;
+
+// ----- ANIMATION STATE -----
+var animState = 0;              // Current animation state (0-8)
+var progress = 0;               // Progress within current state (0.0 - 1.0)
+var running = false;            // Is animation running?
+var looping = false;            // Loop continuously?
+var objectAttached = false;     // Is object held by gripper?
+var speed = 0.5;                // Animation speed multiplier
+
+// ----- OBJECT POSITION -----
+var cubePosition = { 
+    x: PLATFORM_X, 
+    y: PLATFORM_Y + OBJ_SIZE/2, 
+    z: 0 
+};
+var pickingFromRight = true;    // Which platform to pick from
+var startPose = [0, 0, 0, 0, 35]; // Pose at start of current animation
+
+// ----- ANIMATION STATE NAMES -----
+var STATES = [
+    'IDLE - Ready',
+    '1/8 Rotating to pickup...',
+    '2/8 Reaching down...',
+    '3/8 Closing gripper...',
+    '4/8 Lifting object...',
+    '5/8 Rotating to drop...',
+    '6/8 Lowering object...',
+    '7/8 Opening gripper...',
+    '8/8 Returning home...'
+];
+
+// ----- KEYBOARD STATE -----
+var keysPressed = {};
+
+// ----- TRANSFORMATION MATRICES -----
+var modelViewMatrix, projectionMatrix;
+var gripperTipMatrix;           // For attaching object to gripper (view space)
+var gripperWorldPos = {x: 0, y: 0, z: 0};  // Gripper position in world coordinates
+
+// ----- MATERIAL DEFINITIONS -----
+// Each material has color, shininess, and metallic properties
+var MATERIALS = {
+    base:     { color: [0.15, 0.15, 0.18], shininess: 20,  metallic: 0.3 },
+    column:   { color: [0.2, 0.2, 0.25],   shininess: 30,  metallic: 0.4 },
+    arm:      { color: [0.9, 0.54, 0.0],   shininess: 60,  metallic: 0.7 },   // Orange
+    joint:    { color: [0.25, 0.25, 0.3],  shininess: 80,  metallic: 0.9 },
+    gripper:  { color: [0.5, 0.5, 0.55],   shininess: 100, metallic: 0.95 },
+    object:   { color: [0.9, 0.2, 0.13],   shininess: 40,  metallic: 0.2 },   // Red
+    platform: { color: [0.15, 0.4, 0.7],   shininess: 30,  metallic: 0.3 },   // Blue
+    platformL:{ color: [0.2, 0.6, 0.3],    shininess: 30,  metallic: 0.3 },   // Green
+    ground:   { color: [0.12, 0.12, 0.14], shininess: 10,  metallic: 0.1 }
+};
+
+// Geometry vertex counts
+var cubeVertexCount, cylinderVertexCount, cylinderStartIndex;
+
+/*
+ * =========================================================================
+ * SECTION 4: GEOMETRY GENERATION
+ * =========================================================================
+ */
+
+/**
+ * Add a quad face to geometry arrays
+ * @param {Array} p1,p2,p3,p4 - Corner vertices (counter-clockwise)
+ * @param {Array} n - Face normal
+ */
+function addCubeFace(p1, p2, p3, p4, n) {
+    // Two triangles per face
+    positions.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+    // Same normal for all 6 vertices (flat shading)
+    for (var i = 0; i < 6; i++) normals.push(...n);
+}
+
+/**
+ * Create unit cube geometry centered at origin
+ * Cube spans from -0.5 to 0.5 on each axis
+ */
+function createCube() {
+    var v = [
+        [-0.5, -0.5,  0.5], [ 0.5, -0.5,  0.5], [ 0.5,  0.5,  0.5], [-0.5,  0.5,  0.5],  // Front
+        [-0.5, -0.5, -0.5], [ 0.5, -0.5, -0.5], [ 0.5,  0.5, -0.5], [-0.5,  0.5, -0.5]   // Back
+    ];
+    addCubeFace(v[3], v[2], v[1], v[0], [ 0, 0, 1]);  // Front  (+Z)
+    addCubeFace(v[4], v[5], v[6], v[7], [ 0, 0,-1]);  // Back   (-Z)
+    addCubeFace(v[7], v[6], v[2], v[3], [ 0, 1, 0]);  // Top    (+Y)
+    addCubeFace(v[0], v[1], v[5], v[4], [ 0,-1, 0]);  // Bottom (-Y)
+    addCubeFace(v[6], v[5], v[1], v[2], [ 1, 0, 0]);  // Right  (+X)
+    addCubeFace(v[3], v[0], v[4], v[7], [-1, 0, 0]);  // Left   (-X)
+}
+
+/**
+ * Create cylinder geometry for realistic joints
+ * Cylinder is centered at origin, extends from y=-0.5 to y=0.5
+ * @param {number} segments - Number of segments around circumference
+ */
+function createCylinder(segments) {
+    segments = segments || 16;
+    
+    for (var i = 0; i < segments; i++) {
+        // Angles for this segment
+        var a1 = (i / segments) * Math.PI * 2;
+        var a2 = ((i + 1) / segments) * Math.PI * 2;
+        
+        // Vertex positions on unit circle
+        var x1 = Math.cos(a1) * 0.5, z1 = Math.sin(a1) * 0.5;
+        var x2 = Math.cos(a2) * 0.5, z2 = Math.sin(a2) * 0.5;
+        
+        // Normals for curved surface
+        var n1 = normalize3([x1, 0, z1]);
+        var n2 = normalize3([x2, 0, z2]);
+        
+        // Side faces (two triangles per segment)
+        positions.push(x1, -0.5, z1, x2, -0.5, z2, x2, 0.5, z2);
+        positions.push(x1, -0.5, z1, x2, 0.5, z2, x1, 0.5, z1);
+        normals.push(...n1, ...n2, ...n2, ...n1, ...n2, ...n1);
+        
+        // Top cap
+        positions.push(0, 0.5, 0, x1, 0.5, z1, x2, 0.5, z2);
+        normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+        
+        // Bottom cap
+        positions.push(0, -0.5, 0, x2, -0.5, z2, x1, -0.5, z1);
+        normals.push(0, -1, 0, 0, -1, 0, 0, -1, 0);
+    }
+}
+
+/*
+ * =========================================================================
+ * SECTION 5: INITIALIZATION
+ * =========================================================================
+ */
+
+/**
+ * Main initialization function
+ * Sets up WebGL, creates geometry, initializes UI
+ */
+function init() {
+    // ----- Get WebGL Context -----
+    canvas = document.getElementById("gl-canvas");
+    gl = canvas.getContext('webgl2');
+    if (!gl) { 
+        alert("WebGL 2.0 is not available in your browser"); 
+        return; 
+    }
+    
+    // ----- Configure WebGL -----
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.08, 0.08, 0.1, 1.0);  // Dark background
+    gl.enable(gl.DEPTH_TEST);              // Enable depth testing
+    
+    // ----- Initialize Shaders -----
+    program = initShaders(gl, "vertex-shader", "fragment-shader");
+    gl.useProgram(program);
+    
+    // ----- Create Geometry -----
+    createCube();
+    cubeVertexCount = positions.length / 3;
+    
+    cylinderStartIndex = positions.length / 3;
+    createCylinder(20);  // 20 segments for smooth appearance
+    cylinderVertexCount = (positions.length / 3) - cylinderStartIndex;
+    
+    // ----- Create Position Buffer -----
+    var posBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+    var aPos = gl.getAttribLocation(program, "aPosition");
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aPos);
+    
+    // ----- Create Normal Buffer -----
+    var normBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+    var aNorm = gl.getAttribLocation(program, "aNormal");
+    gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aNorm);
+    
+    // ----- Get Uniform Locations -----
+    uModelViewMatrix = gl.getUniformLocation(program, "modelViewMatrix");
+    uProjectionMatrix = gl.getUniformLocation(program, "projectionMatrix");
+    uNormalMatrix = gl.getUniformLocation(program, "normalMatrix");
+    uColor = gl.getUniformLocation(program, "uColor");
+    uLightPos = gl.getUniformLocation(program, "uLightPos");
+    uLightPos2 = gl.getUniformLocation(program, "uLightPos2");
+    uShininess = gl.getUniformLocation(program, "uShininess");
+    uMetallic = gl.getUniformLocation(program, "uMetallic");
+    uAmbientColor = gl.getUniformLocation(program, "uAmbientColor");
+    
+    // ----- Set Projection Matrix -----
+    projectionMatrix = ortho(-4, 4, -1.5, 4.5, -20, 20);
+    gl.uniformMatrix4fv(uProjectionMatrix, false, flatten(projectionMatrix));
+    
+    // ----- Set Light Positions -----
+    gl.uniform3fv(uLightPos, [5, 8, 10]);    // Main light (top-right-front)
+    gl.uniform3fv(uLightPos2, [-4, 3, -5]);  // Fill light (left-back)
+    gl.uniform3fv(uAmbientColor, [0.6, 0.65, 0.8]);  // Slightly blue ambient
+    
+    // ----- Setup UI Event Handlers -----
+    setupSliders();
+    setupButtons();
+    setupKeyboard();
+    setupColorPickers();
+    
+    // ----- Start Render Loop -----
+    // Initialize gripper angle based on default object size
+    var grip = getGripperAngles();
+    theta[GRIPPER] = grip.open;
+    updateUI();
+    
+    render();
+}
+
+/*
+ * =========================================================================
+ * SECTION 6: UI EVENT HANDLERS
+ * =========================================================================
+ */
+
+/**
+ * Setup slider input handlers
+ * Uses 'oninput' for real-time updates while dragging
+ */
+function setupSliders() {
+    // Joint angle sliders (Base, Lower, Upper, Wrist)
+    for (var i = 0; i < 4; i++) {
+        (function(idx) {
+            document.getElementById("slider" + idx).oninput = function(e) {
+                theta[idx] = parseFloat(e.target.value);
+                document.getElementById("v" + idx).textContent = Math.round(theta[idx]) + "°";
+            };
+        })(i);
+    }
+    
+    // Gripper slider - with grab/release functionality
+    document.getElementById("slider4").oninput = function(e) {
+        var newAngle = parseFloat(e.target.value);
+        var wasOpen = theta[GRIPPER] > 15;
+        var isNowOpen = newAngle > 15;
+        
+        // Check for grab when closing
+        if (wasOpen && !isNowOpen && !objectAttached) {
+            var dist = getGripperDistanceToCube();
+            if (dist < 0.4) {
+                objectAttached = true;
+            }
+        }
+        
+        // Check for release when opening - only allow if near platform
+        if (!wasOpen && isNowOpen && objectAttached) {
+            var tipPos = getGripperWorldPosition();
+            var nearPlatform = isNearPlatform(tipPos);
+            
+            if (nearPlatform) {
+                objectAttached = false;
+                // Snap to platform
+                if (nearPlatform === 'right') {
+                    cubePosition.x = PLATFORM_X;
+                    cubePosition.y = PLATFORM_Y + (OBJ_SIZE * objectScale) / 2;
+                    cubePosition.z = 0;
+                } else {
+                    cubePosition.x = -PLATFORM_X;
+                    cubePosition.y = PLATFORM_Y + (OBJ_SIZE * objectScale) / 2;
+                    cubePosition.z = 0;
+                }
+                theta[GRIPPER] = newAngle;
+            }
+            // If not near platform, gripper stays closed
+        } else {
+            theta[GRIPPER] = newAngle;
+        }
+        
+        document.getElementById("v4").textContent = Math.round(theta[GRIPPER]) + "°";
+        updateUI();
+    };
+    
+    // Speed slider
+    document.getElementById("sliderSpeed").oninput = function(e) {
+        speed = parseFloat(e.target.value);
+        document.getElementById("vSpeed").textContent = speed.toFixed(1) + "x";
+    };
+    
+    // Object size slider
+    document.getElementById("sliderSize").oninput = function(e) {
+        objectScale = parseFloat(e.target.value);
+        document.getElementById("vSize").textContent = objectScale.toFixed(1) + "x";
+        // Adjust gripper opening if not in animation and not holding object
+        if (!running && !objectAttached) {
+            var grip = getGripperAngles();
+            theta[GRIPPER] = grip.open;
+            updateUI();
+        }
+    };
+}
+
+/**
+ * Setup button click handlers
+ */
+function setupButtons() {
+    document.getElementById("btnStart").onclick = startAnim;
+    document.getElementById("btnStop").onclick = stopAnim;
+    document.getElementById("btnReset").onclick = resetAnim;
+    document.getElementById("btnLoop").onclick = toggleLoop;
+}
+
+/**
+ * Setup color picker handlers
+ */
+function setupColorPickers() {
+    // Arm color picker
+    document.getElementById("colorArm").oninput = function(e) {
+        var hex = e.target.value;
+        MATERIALS.arm.color = hexToRgb(hex);
+    };
+    
+    // Object color picker
+    document.getElementById("colorObject").oninput = function(e) {
+        var hex = e.target.value;
+        MATERIALS.object.color = hexToRgb(hex);
+    };
+}
+
+/**
+ * Convert hex color to RGB array (0-1 range)
+ * @param {string} hex - Hex color string (#RRGGBB)
+ * @returns {Array} RGB values [r, g, b] in 0-1 range
+ */
+function hexToRgb(hex) {
+    var r = parseInt(hex.substr(1, 2), 16) / 255;
+    var g = parseInt(hex.substr(3, 2), 16) / 255;
+    var b = parseInt(hex.substr(5, 2), 16) / 255;
+    return [r, g, b];
+}
+
+/**
+ * Setup keyboard event handlers
+ */
+function setupKeyboard() {
+    document.addEventListener('keydown', function(e) {
+        // Prevent default for arrow keys and space
+        if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+        }
+        keysPressed[e.key] = true;
+        
+        // Handle special keys
+        if (e.key === 'Enter') startAnim();
+        if (e.key.toLowerCase() === 'p') stopAnim();
+        if (e.key.toLowerCase() === 'r') resetAnim();
+        if (e.key.toLowerCase() === 'l') toggleLoop();
+        if (e.key === ' ') { 
+            toggleGripper();
+        }
+    });
+    
+    document.addEventListener('keyup', function(e) { 
+        keysPressed[e.key] = false; 
+    });
+}
+
+/**
+ * Toggle gripper open/close with actual grab functionality
+ * If gripper is near the cube and closing, it will grab
+ * If gripper is holding and opening near a platform, it will release
+ */
+function toggleGripper() {
+    var grip = getGripperAngles();
+    var isOpen = theta[GRIPPER] > 15;
+    
+    if (isOpen) {
+        // Closing gripper - check if we can grab
+        theta[GRIPPER] = grip.grip;
+        
+        // Check if gripper is close to cube (only if not already holding)
+        if (!objectAttached) {
+            var dist = getGripperDistanceToCube();
+            if (dist < 0.4) {
+                // Close enough to grab
+                objectAttached = true;
+            }
+        }
+    } else {
+        // Opening gripper - only release if near a platform
+        if (objectAttached) {
+            var tipPos = getGripperWorldPosition();
+            var nearPlatform = isNearPlatform(tipPos);
+            
+            if (nearPlatform) {
+                // Release the cube
+                theta[GRIPPER] = grip.open;
+                objectAttached = false;
+                
+                // Snap to the nearest platform
+                if (nearPlatform === 'right') {
+                    cubePosition.x = PLATFORM_X;
+                    cubePosition.y = PLATFORM_Y + (OBJ_SIZE * objectScale) / 2;
+                    cubePosition.z = 0;
+                } else {
+                    cubePosition.x = -PLATFORM_X;
+                    cubePosition.y = PLATFORM_Y + (OBJ_SIZE * objectScale) / 2;
+                    cubePosition.z = 0;
+                }
+            }
+            // If not near platform, gripper stays closed - keep holding
+        } else {
+            // Not holding anything, just open gripper
+            theta[GRIPPER] = grip.open;
+        }
+    }
+    updateUI();
+}
+
+/**
+ * Check if a position is near either platform
+ * @param {Object} pos - Position {x, y, z}
+ * @returns {string|false} 'right', 'left', or false
+ */
+function isNearPlatform(pos) {
+    var platformRadius = 0.5;  // How close to platform center
+    var maxHeight = PLATFORM_Y + 0.6;  // Max height above platform
+    
+    // Check right platform (blue)
+    var distRight = Math.sqrt(
+        Math.pow(pos.x - PLATFORM_X, 2) + 
+        Math.pow(pos.z, 2)
+    );
+    if (distRight < platformRadius && pos.y < maxHeight) {
+        return 'right';
+    }
+    
+    // Check left platform (green)
+    var distLeft = Math.sqrt(
+        Math.pow(pos.x + PLATFORM_X, 2) + 
+        Math.pow(pos.z, 2)
+    );
+    if (distLeft < platformRadius && pos.y < maxHeight) {
+        return 'left';
+    }
+    
+    return false;
+}
+
+/**
+ * Calculate distance from gripper tip to cube center in world space
+ */
+function getGripperDistanceToCube() {
+    var tipPos = gripperWorldPos;
+    var dx = tipPos.x - cubePosition.x;
+    var dy = tipPos.y - cubePosition.y;
+    var dz = tipPos.z - cubePosition.z;
+    
+    return Math.sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+/**
+ * Compute gripper tip position in world coordinates using forward kinematics
+ * This calculates the position based on joint angles without view transformation
+ */
+function computeGripperWorldPosition() {
+    // Start from base
+    var m = mat4();
+    
+    // Fixed base height
+    m = mult(m, translate(0, 0.3, 0));
+    
+    // Base rotation (Y-axis)
+    m = mult(m, rotateY(theta[BASE]));
+    
+    // Column
+    m = mult(m, translate(0, 0.16, 0));
+    m = mult(m, translate(0, BASE_HEIGHT, 0));
+    
+    // Lower arm rotation (X-axis)
+    m = mult(m, rotateX(theta[LOWER]));
+    m = mult(m, translate(0, LOWER_ARM_HEIGHT, 0));
+    
+    // Upper arm rotation (X-axis)
+    m = mult(m, rotateX(theta[UPPER]));
+    m = mult(m, translate(0, UPPER_ARM_HEIGHT, 0));
+    
+    // Wrist rotation (X-axis)
+    m = mult(m, rotateX(theta[WRIST]));
+    m = mult(m, translate(0, WRIST_HEIGHT, 0));
+    
+    // Gripper mount and fingers
+    var fingerScale = 1 + (objectScale - 1) * 0.3;
+    var fingerLen = FINGER_LENGTH * fingerScale;
+    m = mult(m, translate(0, 0.06 + fingerLen + 0.03, 0));
+    
+    // Extract world position from matrix
+    gripperWorldPos.x = m[0][3];
+    gripperWorldPos.y = m[1][3];
+    gripperWorldPos.z = m[2][3];
+}
+
+/**
+ * Get gripper tip position in world coordinates
+ */
+function getGripperWorldPosition() {
+    return gripperWorldPos;
+}
+
+/**
+ * Process continuous keyboard input (called each frame)
+ */
+function processKeyboard() {
+    var s = 2;  // Rotation speed in degrees per frame
+    
+    if (keysPressed['q'] || keysPressed['Q']) theta[BASE] = Math.max(-180, theta[BASE] - s);
+    if (keysPressed['e'] || keysPressed['E']) theta[BASE] = Math.min(180, theta[BASE] + s);
+    if (keysPressed['w'] || keysPressed['W']) theta[LOWER] = Math.min(90, theta[LOWER] + s);
+    if (keysPressed['s'] || keysPressed['S']) theta[LOWER] = Math.max(-90, theta[LOWER] - s);
+    if (keysPressed['ArrowUp'])   theta[UPPER] = Math.min(150, theta[UPPER] + s);
+    if (keysPressed['ArrowDown']) theta[UPPER] = Math.max(-150, theta[UPPER] - s);
+    if (keysPressed['ArrowLeft'])  theta[WRIST] = Math.max(-90, theta[WRIST] - s);
+    if (keysPressed['ArrowRight']) theta[WRIST] = Math.min(90, theta[WRIST] + s);
+}
+
+/*
+ * =========================================================================
+ * SECTION 7: ANIMATION CONTROL
+ * =========================================================================
+ */
+
+/**
+ * Start the pick-and-place animation sequence
+ */
+function startAnim() {
+    if (animState === 0) {
+        // Determine which platform has the object
+        pickingFromRight = cubePosition.x > 0;
+        startPose = theta.slice();  // Save current pose
+        animState = 1;
+        progress = 0;
+    }
+    running = true;
+    updateUI();
+}
+
+/**
+ * Stop/pause the animation
+ */
+function stopAnim() { 
+    running = false; 
+    updateUI(); 
+}
+
+/**
+ * Reset to initial state
+ */
+function resetAnim() {
+    running = false;
+    animState = 0;
+    progress = 0;
+    var grip = getGripperAngles();
+    theta = [0, 0, 0, 0, grip.open];
+    objectAttached = false;
+    cubePosition = { x: PLATFORM_X, y: PLATFORM_Y + OBJ_SIZE/2, z: 0 };
+    pickingFromRight = true;
+    updateUI();
+}
+
+/**
+ * Toggle loop mode on/off
+ * When enabled, animation repeats continuously
+ */
+function toggleLoop() {
+    looping = !looping;
+    var btn = document.getElementById('btnLoop');
+    btn.textContent = 'LOOP ' + (looping ? 'ON' : 'OFF');
+    btn.className = 'loop' + (looping ? ' active' : '');
+}
+
+/**
+ * Update UI elements to reflect current state
+ */
+function updateUI() {
+    // Update slider positions and labels
+    for (var i = 0; i < 5; i++) {
+        document.getElementById('slider' + i).value = theta[i];
+        document.getElementById('v' + i).textContent = Math.round(theta[i]) + '°';
+    }
+    
+    // Update status display
+    document.getElementById('stateText').textContent = STATES[animState];
+    document.getElementById('objText').textContent = objectAttached ? 
+        'Held by Gripper' : 
+        (cubePosition.x > 0 ? 'Right Platform (Blue)' : 'Left Platform (Green)');
+    
+    // Update distance/action display
+    var distEl = document.getElementById('distText');
+    
+    if (objectAttached) {
+        // When holding - show if we can drop
+        var tipPos = getGripperWorldPosition();
+        var nearPlatform = isNearPlatform(tipPos);
+        
+        if (nearPlatform) {
+            distEl.textContent = 'Can DROP on ' + (nearPlatform === 'right' ? 'Blue' : 'Green');
+            distEl.style.color = '#00cc66';
+        } else {
+            distEl.textContent = 'Move to platform to drop';
+            distEl.style.color = '#cc3333';
+        }
+    } else {
+        // When not holding - show distance to cube
+        var dist = getGripperDistanceToCube();
+        if (dist < 999) {
+            distEl.textContent = dist.toFixed(2);
+            if (dist < 0.4) {
+                distEl.style.color = '#00cc66';
+                distEl.textContent += ' - GRAB';
+            } else if (dist < 0.7) {
+                distEl.style.color = '#ffaa00';
+            } else {
+                distEl.style.color = '#666';
+            }
+        } else {
+            distEl.textContent = '--';
+            distEl.style.color = '#666';
+        }
+    }
+}
+
+/*
+ * =========================================================================
+ * SECTION 8: ANIMATION POSES AND INTERPOLATION
+ * =========================================================================
+ */
+
+/**
+ * Calculate gripper angles based on object size
+ * Larger objects need wider opening and different grip angle
+ */
+function getGripperAngles() {
+    // Open angle scales with object size (bigger object = wider open)
+    var openAngle = Math.min(45, 25 + (objectScale * 10));
+    // Grip angle - slightly closed around object (scales with size)
+    var gripAngle = Math.max(0, Math.min(20, (objectScale - 1) * 15));
+    return { open: openAngle, grip: gripAngle };
+}
+
+/**
+ * Get pose definitions for current pick direction
+ * Poses are arrays: [Base, Lower, Upper, Wrist, Gripper]
+ * @returns {Object} Object containing all animation poses
+ */
+function getPoses() {
+    var grip = getGripperAngles();
+    
+    // Base: +90 faces right (blue), -90 faces left (green)
+    if (pickingFromRight) {
+        return {
+            HOME:      [0,   0,   0,  0, grip.open],   // Neutral position
+            FACE_PICK: [90,  0,   0,  0, grip.open],   // Rotate to face right platform
+            REACH:     [90, 42, 120,  0, grip.open],   // Reach down to cube
+            GRAB:      [90, 42, 120,  0, grip.grip],   // Close gripper (adjusted for size)
+            LIFT:      [90, 20,  40,  0, grip.grip],   // Lift up
+            FACE_DROP: [-90,20,  40,  0, grip.grip],   // Rotate to face left platform
+            LOWER:     [-90,42, 120,  0, grip.grip],   // Lower to platform
+            DROP:      [-90,42, 120,  0, grip.open]    // Open gripper
+        };
+    } else {
+        return {
+            HOME:      [0,   0,   0,  0, grip.open],
+            FACE_PICK: [-90, 0,   0,  0, grip.open],   // Rotate to face left platform
+            REACH:     [-90,42, 120,  0, grip.open],
+            GRAB:      [-90,42, 120,  0, grip.grip],
+            LIFT:      [-90,20,  40,  0, grip.grip],
+            FACE_DROP: [90, 20,  40,  0, grip.grip],   // Rotate to face right platform
+            LOWER:     [90, 42, 120,  0, grip.grip],
+            DROP:      [90, 42, 120,  0, grip.open]
+        };
+    }
+}
+
+/**
+ * Ease-in-out function for smooth animation
+ * @param {number} t - Input value (0-1)
+ * @returns {number} Eased value (0-1)
+ */
+function ease(t) { 
+    return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; 
+}
+
+/**
+ * Interpolate between two poses
+ * @param {Array} from - Starting pose
+ * @param {Array} to - Target pose
+ * @param {number} t - Progress (0-1)
+ */
+function lerpPose(from, to, t) {
+    var e = ease(Math.min(t, 1));
+    for (var i = 0; i < 5; i++) {
+        theta[i] = from[i] + (to[i] - from[i]) * e;
+    }
+}
+
+/**
+ * Main animation update function (called each frame)
+ * Implements 8-state animation state machine
+ */
+function animate() {
+    if (!running) return;
+    
+    var POSES = getPoses();
+    
+    // Slower speed for grip/release actions
+    var spd = (animState === 3 || animState === 7) ? speed * 0.3 : speed;
+    progress += 0.012 * spd;
+    
+    // State machine transitions
+    var transitions = [
+        [startPose, POSES.FACE_PICK],      // State 1: Rotate to pickup
+        [POSES.FACE_PICK, POSES.REACH],    // State 2: Reach down
+        [POSES.REACH, POSES.GRAB],         // State 3: Close gripper
+        [POSES.GRAB, POSES.LIFT],          // State 4: Lift up
+        [POSES.LIFT, POSES.FACE_DROP],     // State 5: Rotate to drop
+        [POSES.FACE_DROP, POSES.LOWER],    // State 6: Lower down
+        [POSES.LOWER, POSES.DROP],         // State 7: Open gripper
+        [POSES.DROP, POSES.HOME]           // State 8: Return home
+    ];
+    
+    if (animState >= 1 && animState <= 8) {
+        // Interpolate current transition
+        lerpPose(transitions[animState-1][0], transitions[animState-1][1], progress);
+        
+        // Handle object attachment/detachment
+        if (animState === 3 && progress >= 0.7 && !objectAttached) {
+            objectAttached = true;  // Grab object when gripper mostly closed
+        }
+        if (animState === 7 && progress >= 0.3 && objectAttached) {
+            objectAttached = false;  // Release object when gripper opens
+            // Move cube to other platform
+            cubePosition.x = pickingFromRight ? -PLATFORM_X : PLATFORM_X;
+            cubePosition.y = PLATFORM_Y + OBJ_SIZE/2;
+        }
+        
+        // Advance to next state when current is complete
+        if (progress >= 1) {
+            startPose = theta.slice();
+            if (animState === 8) {
+                // Animation complete
+                if (looping) {
+                    // Start again from opposite platform
+                    pickingFromRight = !pickingFromRight;
+                    animState = 1;
+                } else {
+                    animState = 0;
+                    running = false;
+                }
+            } else {
+                animState++;
+            }
+            progress = 0;
+        }
+    }
+    updateUI();
+}
+
+/*
+ * =========================================================================
+ * SECTION 9: RENDERING FUNCTIONS
+ * =========================================================================
+ */
+
+/**
+ * Set material properties for current object
+ * @param {Object} mat - Material definition
+ */
+function setMaterial(mat) {
+    gl.uniform3fv(uColor, mat.color);
+    gl.uniform1f(uShininess, mat.shininess);
+    gl.uniform1f(uMetallic, mat.metallic);
+}
+
+/**
+ * Draw a cube with given transformation and material
+ * @param {mat4} instanceMatrix - Local transformation
+ * @param {Object} material - Material properties
+ */
+function drawCube(instanceMatrix, material) {
+    var mv = mult(modelViewMatrix, instanceMatrix);
+    gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(mv));
+    gl.uniformMatrix4fv(uNormalMatrix, false, flatten(transpose(mv)));
+    setMaterial(material);
+    gl.drawArrays(gl.TRIANGLES, 0, cubeVertexCount);
+}
+
+/**
+ * Draw a cylinder with given transformation and material
+ * @param {mat4} instanceMatrix - Local transformation
+ * @param {Object} material - Material properties
+ */
+function drawCylinder(instanceMatrix, material) {
+    var mv = mult(modelViewMatrix, instanceMatrix);
+    gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(mv));
+    gl.uniformMatrix4fv(uNormalMatrix, false, flatten(transpose(mv)));
+    setMaterial(material);
+    gl.drawArrays(gl.TRIANGLES, cylinderStartIndex, cylinderVertexCount);
+}
+
+/*
+ * =========================================================================
+ * SECTION 10: MAIN RENDER LOOP
+ * Implements hierarchical modeling for robotic arm
+ * =========================================================================
+ */
+
+/**
+ * Main render function - called every frame
+ */
+function render() {
+    // Clear buffers
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    // Process input and animation
+    processKeyboard();
+    animate();
+    
+    // Compute gripper world position for grab/drop detection
+    computeGripperWorldPosition();
+    
+    // Update UI every frame for real-time distance display
+    updateUI();
+    
+    // ----- VIEW TRANSFORMATION -----
+    // Rotate scene for 3/4 view perspective
+    var viewMatrix = mult(rotateX(25), rotateY(20));
+    
+    // ===== DRAW SCENE ELEMENTS =====
+    
+    // Ground plane
+    modelViewMatrix = viewMatrix;
+    drawCube(mult(translate(0, -0.08, 0), scale(7, 0.16, 4)), MATERIALS.ground);
+    
+    // Right platform (Blue)
+    drawCube(mult(translate(PLATFORM_X, PLATFORM_Y/2, 0), scale(0.5, PLATFORM_Y, 0.5)), MATERIALS.platform);
+    
+    // Left platform (Green)
+    drawCube(mult(translate(-PLATFORM_X, PLATFORM_Y/2, 0), scale(0.5, PLATFORM_Y, 0.5)), MATERIALS.platformL);
+    
+    // ===== HIERARCHICAL ROBOT ARM =====
+    // Each segment's transformation builds on parent's transformation
+    
+    modelViewMatrix = viewMatrix;
+    
+    // ----- FIXED BASE -----
+    // Stationary cylindrical base
+    drawCylinder(mult(translate(0, 0.15, 0), scale(0.7, 0.3, 0.7)), MATERIALS.base);
+    
+    // ----- ROTATING BASE -----
+    // Rotates around Y-axis (theta[BASE])
+    modelViewMatrix = mult(modelViewMatrix, translate(0, 0.3, 0));
+    modelViewMatrix = mult(modelViewMatrix, rotateY(theta[BASE]));
+    drawCylinder(mult(translate(0, 0.08, 0), scale(0.5, 0.16, 0.5)), MATERIALS.base);
+    
+    // ----- VERTICAL COLUMN -----
+    modelViewMatrix = mult(modelViewMatrix, translate(0, 0.16, 0));
+    drawCube(mult(translate(0, BASE_HEIGHT/2, 0), scale(0.18, BASE_HEIGHT, 0.18)), MATERIALS.column);
+    modelViewMatrix = mult(modelViewMatrix, translate(0, BASE_HEIGHT, 0));
+    
+    // ----- SHOULDER JOINT -----
+    // Cylindrical joint (rotated 90° to appear horizontal)
+    drawCylinder(mult(rotateZ(90), scale(0.2, 0.22, 0.2)), MATERIALS.joint);
+    
+    // ----- LOWER ARM -----
+    // Rotates around X-axis (theta[LOWER])
+    modelViewMatrix = mult(modelViewMatrix, rotateX(theta[LOWER]));
+    drawCube(mult(translate(0, LOWER_ARM_HEIGHT/2, 0), scale(LOWER_ARM_WIDTH, LOWER_ARM_HEIGHT, LOWER_ARM_WIDTH)), MATERIALS.arm);
+    modelViewMatrix = mult(modelViewMatrix, translate(0, LOWER_ARM_HEIGHT, 0));
+    
+    // ----- ELBOW JOINT -----
+    drawCylinder(mult(rotateZ(90), scale(0.16, 0.18, 0.16)), MATERIALS.joint);
+    
+    // ----- UPPER ARM -----
+    // Rotates around X-axis (theta[UPPER])
+    modelViewMatrix = mult(modelViewMatrix, rotateX(theta[UPPER]));
+    drawCube(mult(translate(0, UPPER_ARM_HEIGHT/2, 0), scale(UPPER_ARM_WIDTH, UPPER_ARM_HEIGHT, UPPER_ARM_WIDTH)), MATERIALS.arm);
+    modelViewMatrix = mult(modelViewMatrix, translate(0, UPPER_ARM_HEIGHT, 0));
+    
+    // ----- WRIST JOINT -----
+    drawCylinder(mult(rotateZ(90), scale(0.12, 0.14, 0.12)), MATERIALS.joint);
+    
+    // ----- WRIST SEGMENT -----
+    // Rotates around X-axis (theta[WRIST])
+    modelViewMatrix = mult(modelViewMatrix, rotateX(theta[WRIST]));
+    drawCube(mult(translate(0, WRIST_HEIGHT/2, 0), scale(WRIST_WIDTH, WRIST_HEIGHT, WRIST_WIDTH)), MATERIALS.column);
+    modelViewMatrix = mult(modelViewMatrix, translate(0, WRIST_HEIGHT, 0));
+    
+    // ----- GRIPPER MOUNT -----
+    // Scale gripper mount slightly based on object size
+    var mountScale = 1 + (objectScale - 1) * 0.2;
+    drawCube(mult(translate(0, 0.03, 0), scale(0.2 * mountScale, 0.06, 0.16 * mountScale)), MATERIALS.gripper);
+    var gripBase = mult(modelViewMatrix, translate(0, 0.06, 0));
+    
+    // ----- GRIPPER FINGERS -----
+    // Two fingers that rotate around Z-axis (theta[GRIPPER])
+    // Finger size scales slightly with object size for better grip appearance
+    var fingerScale = 1 + (objectScale - 1) * 0.3;  // Subtle scaling
+    var fingerLen = FINGER_LENGTH * fingerScale;
+    var fingerWid = FINGER_WIDTH * fingerScale;
+    var fingerSpread = 0.06 * fingerScale;  // Spread distance scales too
+    
+    for (var side = -1; side <= 1; side += 2) {
+        // Finger body
+        var fMatrix = mult(gripBase, rotateZ(side * theta[GRIPPER]));
+        fMatrix = mult(fMatrix, translate(side * -fingerSpread, fingerLen/2, 0));
+        
+        var fmv = mult(fMatrix, scale(fingerWid, fingerLen, 0.06 * fingerScale));
+        gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(fmv));
+        gl.uniformMatrix4fv(uNormalMatrix, false, flatten(transpose(fmv)));
+        setMaterial(MATERIALS.gripper);
+        gl.drawArrays(gl.TRIANGLES, 0, cubeVertexCount);
+        
+        // Finger tip (angled inward for better grip)
+        var tipMatrix = mult(fMatrix, translate(0, fingerLen/2, 0));
+        tipMatrix = mult(tipMatrix, rotateZ(side * -30));  // Angle inward
+        tipMatrix = mult(tipMatrix, translate(side * 0.02 * fingerScale, 0.04 * fingerScale, 0));
+        
+        var tmv = mult(tipMatrix, scale(fingerWid, 0.08 * fingerScale, 0.06 * fingerScale));
+        gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(tmv));
+        gl.uniformMatrix4fv(uNormalMatrix, false, flatten(transpose(tmv)));
+        gl.drawArrays(gl.TRIANGLES, 0, cubeVertexCount);
+    }
+    
+    // ----- GRIPPER TIP POSITION -----
+    // Used for attaching the object when held
+    gripperTipMatrix = mult(gripBase, translate(0, fingerLen + 0.03, 0));
+    
+    // ===== DRAW OBJECT (CUBE) =====
+    if (objectAttached) {
+        // Object follows gripper
+        modelViewMatrix = gripperTipMatrix;
+    } else {
+        // Object on platform
+        modelViewMatrix = mult(viewMatrix, translate(cubePosition.x, cubePosition.y, cubePosition.z));
+    }
+    
+    // Apply user-controlled scale
+    var objSize = OBJ_SIZE * objectScale;
+    drawCube(scale(objSize, objSize, objSize), MATERIALS.object);
+    
+    // ----- Continue Render Loop -----
+    requestAnimationFrame(render);
+}
+
+
+
+// Initialize when page loads
+init();
+</script>
+</body>
+</html>
