@@ -41,3 +41,44 @@ The assignment is a WebGL-based interactive 3D simulation representing a Robotic
    - Joint angles (shoulder, elbow, wrist)
    - Claw opening/closing
    - Lighting angles and camera views
+
+---
+
+## 📸 Web Interface Output
+
+When running [`RoboticArm_Final.html`](RoboticArm_Final.html) in a modern web browser, the simulation renders an interactive 3D workspace with a dark industrial style containing the following components:
+
+### 1. 3D WebGL Canvas Viewport
+- **Size:** `900x680` pixels.
+- **Scene Objects:**
+  - **Robotic Arm:** Built hierarchically (Base column, Lower Arm, Upper Arm, Wrist, and two-finger Claw/Gripper).
+  - **Platforms:** Left platform (Green, target drop site) and Right platform (Blue, initial pickup site).
+  - **Interactable Object:** A 3D red cube resting on the platforms.
+  - **Ground Grid:** Textured mesh providing depth reference.
+- **Rendering & Shaders:** Implementing the **Blinn-Phong lighting model** with metallic material reflections, specular highlights, rim lighting, tone mapping, and gamma correction.
+
+### 2. Control Dashboard Panel (Left Sidebar)
+- **Joint Control Sliders:**
+  - `Base Rotation (Q/E)`: `-180°` to `180°` range.
+  - `Lower Arm (W/S)`: `-90°` to `90°` range.
+  - `Upper Arm (↑/↓)`: `-150°` to `150°` range.
+  - `Wrist (←/→)`: `-90°` to `90°` range.
+  - `Gripper (Space)`: `0°` to `45°` claw opening angle.
+- **Animation Customization Sliders:**
+  - `Speed`: `0.1x` to `2.0x` adjustment.
+  - `Object Size`: `0.5x` to `2.0x` scaling.
+- **Color Customizers:** Color pickers for `Arm Color` and `Object Color`.
+- **Action Buttons:** `START`, `STOP`, `RESET`, and `LOOP ON/OFF`.
+- **Status Panel:** Displays current execution state (e.g. `Lifting object`, `Rotating to drop`), platform selection, and picking distance measurements.
+
+### 3. Automated Pick & Place Sequence (8-State Loop)
+Clicking `START` runs the robotic arm through an automated transition sequence:
+1. **State 1:** Rotate base to align with the active pickup platform.
+2. **State 2:** Reach down (adjust joint angles) towards the red cube.
+3. **State 3:** Close gripper claw to grab the cube.
+4. **State 4:** Lift the object up.
+5. **State 5:** Rotate base and arm to align with the drop platform.
+6. **State 6:** Lower the arm and cube down to the destination platform.
+7. **State 7:** Open the gripper claw to release the cube.
+8. **State 8:** Return the arm to the home/default pose.
+
